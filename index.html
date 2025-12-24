@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Formation Arbitre | Entraînement</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <main class="main">
+        <header class="header">
+            <a href="#" class="logo">Quiz Arbitre.</a>
+
+            <nav class="navbar">
+                <a href="#" class="active">Accueil</a>
+            </nav>
+        </header>
+
+        <div class="container">
+            <section class="quiz-section">
+                <div class="quiz-box">
+                    <h1>Quiz - Formation d’Arbitre</h1>
+                    <div class="quiz-header">
+                        <span>Règles & situations de match</span>
+                        <span class="header-score">Score : 0 / 5</span>
+                    </div>
+
+                    <h2 class="question-text">Question en cours…</h2>
+
+                    <div class="option-list">
+                        <!-- Les options seront injectées via questions.js -->
+                    </div>
+
+                    <div id="feedback" class="feedback-box" style="display: none;">
+                        <div id="feedbackStatus" class="feedback-status"></div>
+                        <div id="feedbackCorrect" class="feedback-correct" style="display: none;"></div>
+                        <div class="feedback-explain">
+                            <span class="feedback-label">🧠 Explication :</span>
+                            <span id="feedbackExplainText"></span>
+                        </div>
+                    </div>
+
+                    <div class="quiz-footer">
+                        <span class="question-total">Question 1 sur 5</span>
+                        <button class="next-btn">Suivant</button>
+                    </div>
+                </div>
+
+                <div class="result-box">
+                    <h2>Résultat du quiz</h2>
+                    <div class="percentage-container">
+                        <div class="circular-progress">
+                            <span class="progress-value">0%</span>
+                        </div>
+
+                        <span class="score-text">Ton score : 0 sur 5</span>
+                    </div>
+
+                    <div class="buttons">
+                        <button class="tryAgain-btn">Recommencer</button>
+                        <button class="goHome-btn">Retour à l’accueil</button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="home">
+                <div class="home-content">
+                    <h1>Quiz d’Arbitrage</h1>
+                    <p>
+                        Teste tes connaissances sur les règles, les fautes, les violations et la gestion des situations de match.
+                        L’objectif : progresser et être plus à l’aise sur le terrain.
+                    </p>
+                    <button class="start-btn">Démarrer le quiz</button>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <div class="popup-info">
+        <h2>Consignes du quiz</h2>
+        <span class="info">1. Lis chaque situation attentivement avant de répondre.</span>
+        <span class="info">2. Une seule réponse est correcte (sauf mention contraire).</span>
+        <span class="info">3. Le score s'affiche au fur et à mesure.</span>
+        <span class="info">4. À la fin, tu peux recommencer pour t'améliorer.</span>
+        <span class="info">5. Ce quiz sert d'entraînement : prends le temps de comprendre.</span>
+
+        <div class="quiz-options">
+            <label for="categorySelect" class="quiz-option-label">Catégorie :</label>
+            <select id="categorySelect" class="quiz-select">
+                <option value="ALL">Toutes les catégories</option>
+            </select>
+
+            <label for="countSelect" class="quiz-option-label">Nombre de questions :</label>
+            <select id="countSelect" class="quiz-select">
+                <option value="5">5 questions</option>
+                <option value="10">10 questions</option>
+                <option value="20" selected>20 questions</option>
+                <option value="9999">Toutes</option>
+            </select>
+        </div>
+
+        <div class="btn-group">
+            <button class="info-btn exit-btn">Quitter le quiz</button>
+            <a href="#" class="info-btn continue-btn">Continuer</a>
+        </div>
+    </div>
+
+    <script src="questions.js"></script>
+    <script src="script.js"></script>
+</body>
+
+</html>
