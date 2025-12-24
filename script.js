@@ -11,6 +11,7 @@ const goHomeBtn = document.querySelector('.goHome-btn');
 
 const nextBtn = document.querySelector('.next-btn');
 const optionList = document.querySelector('.option-list');
+const validateBtn = document.getElementById('validateBtn');
 
 const categorySelect = document.getElementById("categorySelect");
 const countSelect = document.getElementById("countSelect");
@@ -32,6 +33,10 @@ let userScore = 0;
 // pool utilisé (filtré / mélangé)
 let quizPool = [];
 
+// Pour les questions à choix multiple
+let selectedAnswers = [];
+let isQuestionValidated = false;
+
 // -----------------
 // Utils
 // -----------------
@@ -45,7 +50,45 @@ function shuffleArray(arr) {
 }
 
 function uniqueCategories(allQs) {
-  return Array.from(new Set(allQs.map(q => q.category).filter(Boolean))).sort();
+  const categories = Array.from(new Set(allQs.map(q => q.category).filter(Boolean)));
+  
+  // Fonction de tri personnalisée pour trier par nombre dans le nom
+  return categories.sort((a, b) => {
+    // Extraire le nombre dans la catégorie
+    // Format attendu: "ART 1 ...", "ART 10 ...", etc.
+    const getNumber = (str) => {
+      // Chercher "ART " suivi d'un nombre
+      const artMatch = str.match(/ART\s+(\d+)/);
+      if (artMatch) {
+        return parseInt(artMatch[1], 10);
+      }
+      // Sinon chercher un nombre au début
+      const numMatch = str.match(/^(\d+)/);
+      if (numMatch) {
+        return parseInt(numMatch[1], 10);
+      }
+      return Infinity;
+    };
+    
+    const numA = getNumber(a);
+    const numB = getNumber(b);
+    
+    // Si les deux ont un nombre, trier par nombre
+    if (numA !== Infinity && numB !== Infinity) {
+      if (numA !== numB) {
+        return numA - numB;
+      }
+      // Si les nombres sont égaux, trier alphabétiquement
+      return a.localeCompare(b);
+    }
+    
+    // Si un seul a un nombre, celui avec nombre vient en premier
+    if (numA !== Infinity) return -1;
+    if (numB !== Infinity) return 1;
+    
+    // Si aucun n'a de nombre, trier alphabétiquement
+    return a.localeCompare(b);
+  });
 }
 
 // -----------------
@@ -169,9 +212,40 @@ nextBtn.onclick = () => {
 // -----------------
 function showQuestions(index) {
   const questionText = document.querySelector('.question-text');
+  const questionType = document.getElementById('questionType');
   const q = quizPool[index];
 
   questionText.textContent = `${q.numb}. ${q.question}`;
+
+  // Reset pour la nouvelle question
+  selectedAnswers = [];
+  isQuestionValidated = false;
+  nextBtn.classList.remove('active');
+  if (validateBtn) {
+    validateBtn.style.display = "none";
+  }
+
+  // Vérifier si c'est une question à choix multiple (vérification robuste)
+  const hasMultipleAnswers = q.answers && Array.isArray(q.answers) && q.answers.length > 1;
+  const isMultiChoice = q.isMulti === true || hasMultipleAnswers;
+
+  // Afficher "Réponse à choix multiple" si la question a plusieurs réponses
+  if (isMultiChoice) {
+    if (questionType) {
+      questionType.textContent = "Réponse à choix multiple - Sélectionnez toutes les bonnes réponses";
+      questionType.style.display = "block";
+    }
+    if (validateBtn) {
+      validateBtn.style.display = "inline-block";
+    }
+  } else {
+    if (questionType) {
+      questionType.style.display = "none";
+    }
+    if (validateBtn) {
+      validateBtn.style.display = "none";
+    }
+  }
 
   // Génère options dynamiques (compatible 2 ou 4 options)
   optionList.innerHTML = q.options
@@ -197,29 +271,107 @@ function showQuestions(index) {
 }
 
 // -----------------
-// Selection -> affiche correction + explication tout de suite
+// Selection -> pour choix multiple, permet sélection/désélection
+// Pour questions simples, valide immédiatement
 // -----------------
 function optionSelected(answerEl) {
   const q = quizPool[questionCount];
+  
+  // Si la question est déjà validée, ne rien faire
+  if (isQuestionValidated) {
+    return;
+  }
 
-  const userAnswer = answerEl.textContent.trim();
-  const correctAnswer = q.answer.trim();
+  // Vérifier si c'est une question à choix multiple (vérification plus robuste)
+  const hasMultipleAnswers = q.answers && Array.isArray(q.answers) && q.answers.length > 1;
+  const isMultiChoice = (q.isMulti === true || q.isMulti === 1 || q.isMulti === "true") || hasMultipleAnswers;
 
-  const allOptions = optionList.children.length;
-
-  // Marquage correct/incorrect
-  const isCorrect = userAnswer === correctAnswer;
-
-  if (isCorrect) {
-    answerEl.classList.add('correct');
-    userScore += 1;
+  // TOUJOURS utiliser le mode sélection pour les questions à choix multiple
+  if (isMultiChoice) {
+    // Empêcher toute validation immédiate - mode sélection uniquement
+    const userAnswer = answerEl.textContent.trim();
+    
+    // Pour les questions à choix multiple : sélection/désélection uniquement
+    if (answerEl.classList.contains('selected')) {
+      // Désélectionner
+      answerEl.classList.remove('selected');
+      selectedAnswers = selectedAnswers.filter(ans => ans !== userAnswer);
+    } else {
+      // Sélectionner
+      answerEl.classList.add('selected');
+      selectedAnswers.push(userAnswer);
+    }
+    
+    // Activer le bouton Valider si au moins une réponse est sélectionnée
+    if (validateBtn) {
+      if (selectedAnswers.length > 0) {
+        validateBtn.classList.add('active');
+      } else {
+        validateBtn.classList.remove('active');
+      }
+    }
+    
+    // NE PAS valider immédiatement - attendre le clic sur "Valider"
+    return;
   } else {
-    answerEl.classList.add('incorrect');
+    // Pour les questions simples : validation immédiate
+    const userAnswer = answerEl.textContent.trim();
+    const correctAnswer = q.answer.trim();
+    validateAnswer(answerEl, q, userAnswer, correctAnswer);
+  }
+}
 
-    // surligner la bonne réponse
+// -----------------
+// Validation de la réponse (appelée après validation pour choix multiple ou immédiatement pour questions simples)
+// -----------------
+function validateAnswer(answerEl, q, userAnswer, correctAnswer) {
+  const allOptions = optionList.children.length;
+  const hasMultipleAnswers = q.answers && Array.isArray(q.answers) && q.answers.length > 1;
+  const isMultiChoice = q.isMulti === true || hasMultipleAnswers;
+  const correctAnswers = isMultiChoice ? q.answers : [correctAnswer];
+
+  isQuestionValidated = true;
+
+  if (isMultiChoice) {
+    // Pour choix multiple : vérifier toutes les réponses sélectionnées
+    const allCorrect = selectedAnswers.length === correctAnswers.length &&
+      selectedAnswers.every(ans => correctAnswers.some(correct => correct.trim() === ans));
+    
+    // Marquer toutes les réponses sélectionnées
     for (let i = 0; i < allOptions; i++) {
-      if (optionList.children[i].textContent.trim() === correctAnswer) {
-        optionList.children[i].setAttribute('class', 'option correct');
+      const optionText = optionList.children[i].textContent.trim();
+      const isSelected = selectedAnswers.includes(optionText);
+      const isCorrect = correctAnswers.some(ans => ans.trim() === optionText);
+      
+      if (isSelected && isCorrect) {
+        optionList.children[i].classList.add('correct');
+        optionList.children[i].classList.remove('selected');
+      } else if (isSelected && !isCorrect) {
+        optionList.children[i].classList.add('incorrect');
+        optionList.children[i].classList.remove('selected');
+      } else if (!isSelected && isCorrect) {
+        optionList.children[i].classList.add('correct');
+      }
+    }
+
+    if (allCorrect) {
+      userScore += 1;
+    }
+  } else {
+    // Pour questions simples : comportement original
+    const isCorrect = userAnswer === correctAnswer;
+    
+    if (isCorrect) {
+      answerEl.classList.add('correct');
+      userScore += 1;
+    } else {
+      answerEl.classList.add('incorrect');
+      
+      // surligner la bonne réponse
+      for (let i = 0; i < allOptions; i++) {
+        if (optionList.children[i].textContent.trim() === correctAnswer) {
+          optionList.children[i].setAttribute('class', 'option correct');
+        }
       }
     }
   }
@@ -229,16 +381,26 @@ function optionSelected(answerEl) {
     optionList.children[i].classList.add('disabled');
   }
 
-  // Afficher feedback immédiat
+  // Afficher feedback
   if (feedbackBox) {
     feedbackBox.style.display = "block";
-    feedbackStatus.textContent = isCorrect ? "✅ Bonne réponse" : "❌ Mauvaise réponse";
     
-    if (!isCorrect) {
-      feedbackCorrect.innerHTML = `<span class="feedback-label">📌 Bonne réponse :</span> ${correctAnswer}`;
+    if (isMultiChoice) {
+      const allCorrect = selectedAnswers.length === correctAnswers.length &&
+        selectedAnswers.every(ans => correctAnswers.some(correct => correct.trim() === ans));
+      feedbackStatus.textContent = allCorrect ? "✅ Toutes les bonnes réponses" : "❌ Réponses incomplètes ou incorrectes";
+      feedbackCorrect.innerHTML = `<span class="feedback-label">📌 Bonnes réponses :</span> ${correctAnswers.join(', ')}`;
       feedbackCorrect.style.display = "block";
     } else {
-      feedbackCorrect.style.display = "none";
+      const isCorrect = userAnswer === correctAnswer;
+      feedbackStatus.textContent = isCorrect ? "✅ Bonne réponse" : "❌ Mauvaise réponse";
+      
+      if (!isCorrect) {
+        feedbackCorrect.innerHTML = `<span class="feedback-label">📌 Bonne réponse :</span> ${correctAnswer}`;
+        feedbackCorrect.style.display = "block";
+      } else {
+        feedbackCorrect.style.display = "none";
+      }
     }
     
     if (feedbackExplainText) {
@@ -248,8 +410,40 @@ function optionSelected(answerEl) {
     }
   }
 
-  // Active suivant
+  // Cacher le bouton Valider et activer Suivant
+  if (validateBtn) {
+    validateBtn.style.display = "none";
+    validateBtn.classList.remove('active');
+  }
   nextBtn.classList.add('active');
+}
+
+// -----------------
+// Gestion du bouton Valider pour choix multiple
+// -----------------
+if (validateBtn) {
+  validateBtn.onclick = () => {
+    const q = quizPool[questionCount];
+    const correctAnswer = q.answer.trim();
+    
+    if (selectedAnswers.length === 0) {
+      return; // Ne rien faire si aucune réponse sélectionnée
+    }
+    
+    // Trouver l'élément de la première réponse sélectionnée pour valider
+    const allOptions = optionList.children;
+    let firstSelected = null;
+    for (let i = 0; i < allOptions.length; i++) {
+      if (allOptions[i].classList.contains('selected')) {
+        firstSelected = allOptions[i];
+        break;
+      }
+    }
+    
+    if (firstSelected) {
+      validateAnswer(firstSelected, q, selectedAnswers[0], correctAnswer);
+    }
+  };
 }
 
 // -----------------
